@@ -24,8 +24,8 @@ test_requirements = [
 ]
 
 setup(
-    name='client_bank_exchange_1c',
-    version='0.1.8',
+    name='client_bank_exchange_1c_py2',
+    version='0.2.4',
     description="Handling of 1CClientBankExchange format",
     # long_description=readme + '\n\n' + history,
     author="Denis Kim",
@@ -43,7 +43,7 @@ setup(
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Natural Language :: English',
         'Natural Language :: Russian',
-        'Programming Language :: Python :: 3.6.4',
+        'Programming Language :: Python :: 2 :: Only',
     ],
     # test_suite='tests',
     # tests_require=test_requirements,
