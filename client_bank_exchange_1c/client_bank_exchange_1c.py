@@ -151,8 +151,8 @@ class Field(NamedTuple):
         found = re.findall(regex, source_text, re.MULTILINE)
 
         if len(found) > 1 and self.type != Type.ARRAY:
-            raise ValueError(f'Согласно спецификации {self.key} не может быть несколькими строками, однако найдено '
-                             f'{len(found)} шт.')
+            raise ValueError(u'Согласно спецификации {} не может быть несколькими строками, однако найдено '
+                             u'{} шт.'.format(self.key, len(found)))
 
         if not found:
             return None
@@ -209,7 +209,7 @@ class Section(object):
                 if not required and not value:
                     return u''
                 else:
-                    return f'{name}' if is_flag else f'{name}={value}'
+                    return u'{}'.format(name) if is_flag else u'{}={}'.format(name, value)
 
             if attr and field.type == Type.ARRAY:
                 lines = [get_line(key, field, item) for item in attr]
@@ -224,7 +224,7 @@ class Section(object):
             value = field.type.value.cast_to_text(attr)
             required = Required.TO_BANK in field.required
             if required and not is_flag and not value:
-                raise ValueError(f'Обязательны при отправке в банк аттрибут {name} не содержит значения!')
+                raise ValueError(u'Обязательны при отправке в банк аттрибут {} не содержит значения!'.format(name))
 
         result = []
         for key, field in self.__class__.Schema.to_dict().items():
@@ -323,7 +323,7 @@ class Balance(Section):
 
     def to_text(self, validate=True):
         content = super(Balance, self).to_text(validate=validate)
-        return f'СекцияРасчСчет\n{content}\nКонецРасчСчет'
+        return u'СекцияРасчСчет\n{}\nКонецРасчСчет'.format(content)
 
     @classmethod
     def from_text(cls, source_text):
