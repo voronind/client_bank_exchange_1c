@@ -1,10 +1,11 @@
 # coding: utf8
 from __future__ import absolute_import
 import re
+from collections import namedtuple
 from decimal import Decimal
 from datetime import date, time, datetime
 from enum import Flag, auto, Enum
-from typing import NamedTuple, List, Callable, Pattern, AnyStr, Any, Optional
+from typing import List, Callable, Pattern, AnyStr, Any, Optional
 from itertools import ifilter
 from itertools import imap
 from io import open
@@ -20,10 +21,11 @@ class Required(Flag):
     BOTH = TO_BANK | FROM_BANK
 
 
-class FieldType(NamedTuple):
-    type: type
-    cast_from_text: Callable
-    cast_to_text: Callable
+FieldType = namedtuple(u'FieldType', [
+    u'type',
+    u'cast_from_text',
+    u'cast_to_text',
+])
 
 
 class Cast(object):
@@ -137,15 +139,16 @@ class Type(Enum):
     DATE = FieldType(type=date, cast_from_text=Cast.str_to_date, cast_to_text=Cast.date_to_str)
     TIME = FieldType(type=time, cast_from_text=Cast.str_to_time, cast_to_text=Cast.time_to_str)
     AMOUNT = FieldType(type=Decimal, cast_from_text=Cast.str_to_amount, cast_to_text=Cast.amount_to_str)
-    ARRAY = FieldType(type=List[unicode], cast_from_text=Cast.str_to_text, cast_to_text=Cast.text_to_str)
+    ARRAY = FieldType(type=list, cast_from_text=Cast.str_to_text, cast_to_text=Cast.text_to_str)
     FLAG = FieldType(type=type(None), cast_from_text=Cast.str_to_text, cast_to_text=Cast.text_to_str)
 
 
-class Field(NamedTuple):
-    key: unicode
-    description: unicode
-    required: Required = Required.NONE
-    type: Type = Type.TEXT
+class Field(object):
+    def __init__(self, key=None, description=None, required=Required.NONE, type=Type.TEXT):
+        self.key = key
+        self.description = description
+        self.required = required
+        self.type = type
 
     def get_value_from_text(self, source_text):
         regex = ur'^' + self.key + u'=(.*?)$'
