@@ -4,9 +4,7 @@ import re
 from collections import namedtuple
 from decimal import Decimal
 from datetime import date, time, datetime
-from typing import List, Callable, Pattern, AnyStr, Any, Optional
-from itertools import ifilter
-from itertools import imap
+from itertools import ifilter, imap
 from io import open
 
 from aenum import Flag, auto, Enum
@@ -606,7 +604,7 @@ class Document(Section):
 
         results = []
         for section_text in extracted:
-            obj: cls = super(Document, cls).from_text(section_text)
+            obj = super(Document, cls).from_text(section_text)
             obj.receipt = Receipt.from_text(section_text)
             obj.payer = Payer.from_text(section_text)
             obj.receiver = Receiver.from_text(section_text)
@@ -628,9 +626,9 @@ class Document(Section):
 class Statement(object):
     def __init__(self, header, balance = None, documents = None):
         super(Statement, self).__init__()
-        self.header: Header = header
-        self.balance: Balance = balance
-        self.documents: List[Document] = documents
+        self.header = header
+        self.balance = balance
+        self.documents = documents
 
     @classmethod
     def from_file(cls, filename):
