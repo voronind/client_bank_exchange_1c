@@ -1,12 +1,15 @@
+from __future__ import absolute_import
 import re
 from decimal import Decimal
 from datetime import date, time, datetime
 from enum import Flag, auto, Enum
-from functools import reduce
 from typing import NamedTuple, List, Callable, Pattern, AnyStr, Any, Optional
+from itertools import ifilter
+from itertools import imap
+from io import open
 
-DATE_FORMAT = '%d.%m.%Y'
-TIME_FORMAT = '%H:%M:%S'
+DATE_FORMAT = u'%d.%m.%Y'
+TIME_FORMAT = u'%H:%M:%S'
 
 
 class Required(Flag):
@@ -22,10 +25,10 @@ class FieldType(NamedTuple):
     cast_to_text: Callable
 
 
-class Cast:
+class Cast(object):
     @staticmethod
-    def str_to_text(obj: AnyStr) -> Optional[str]:
-        """
+    def str_to_text(obj):
+        u"""
         Конвертирует строку из 1CClientBankExchange в чистую строку или None
 
         :param obj: строка
@@ -37,8 +40,8 @@ class Cast:
             return None
 
     @staticmethod
-    def str_to_date(obj: AnyStr) -> Optional[date]:
-        """
+    def str_to_date(obj):
+        u"""
         Конвертирует строку из 1CClientBankExchange в дату
 
         :param obj: строка в формате *дд.мм.гггг*
@@ -50,8 +53,8 @@ class Cast:
             return None
 
     @staticmethod
-    def str_to_time(obj: AnyStr) -> Optional[time]:
-        """
+    def str_to_time(obj):
+        u"""
         Конвертирует строку из 1CClientBankExchange во время
 
         :param obj: строка в формате *чч:мм:сс*
@@ -63,37 +66,37 @@ class Cast:
             return None
 
     @staticmethod
-    def str_to_amount(obj: AnyStr) -> Decimal:
-        """
+    def str_to_amount(obj):
+        u"""
         Конвертирует строку из 1CClientBankExchange в Decimal
 
         :param obj: строка в формате руб[.коп]
         :return: decimal.Decimal
         """
         return Decimal(
-            re.sub(r'[^0-9,.\-]', '', str(obj))
-                .replace("'", '')
-                .replace(' ', '')
-                .replace(',', '.')
-                .replace('.', '', obj.count('.') - 1)
+            re.sub(ur'[^0-9,.\-]', u'', unicode(obj))
+                .replace(u"'", u'')
+                .replace(u' ', u'')
+                .replace(u',', u'.')
+                .replace(u'.', u'', obj.count(u'.') - 1)
         )
 
     @staticmethod
-    def text_to_str(obj: AnyStr) -> str:
-        """
+    def text_to_str(obj):
+        u"""
         Конвертирует чистую строку в строку 1CClientBankExchange
 
         :param obj: строка или None
         :return: строка
         """
         if obj:
-            return str(obj).strip()
+            return unicode(obj).strip()
         else:
-            return ''
+            return u''
 
     @staticmethod
-    def date_to_str(obj: Optional[date]) -> str:
-        """
+    def date_to_str(obj):
+        u"""
         Конвертирует дату в строку
 
         :param obj: datetime.date
@@ -102,11 +105,11 @@ class Cast:
         if obj:
             return obj.strftime(DATE_FORMAT)
         else:
-            return ''
+            return u''
 
     @staticmethod
-    def time_to_str(obj: Optional[time]) -> str:
-        """
+    def time_to_str(obj):
+        u"""
         Конвертирует время в строку
 
         :param obj: datetime.time
@@ -115,36 +118,36 @@ class Cast:
         if obj:
             return obj.strftime(TIME_FORMAT)
         else:
-            return ''
+            return u''
 
     @staticmethod
-    def amount_to_str(obj: Optional[Decimal]) -> str:
-        """
+    def amount_to_str(obj):
+        u"""
         Конвертирует Decimal в строку
 
         :param obj: decimal.Decimal
         :return: строка в формате руб[.коп]
         """
-        return str(obj).replace(',', '.')
+        return unicode(obj).replace(u',', u'.')
 
 
 class Type(Enum):
-    TEXT = FieldType(type=str, cast_from_text=Cast.str_to_text, cast_to_text=Cast.text_to_str)
+    TEXT = FieldType(type=unicode, cast_from_text=Cast.str_to_text, cast_to_text=Cast.text_to_str)
     DATE = FieldType(type=date, cast_from_text=Cast.str_to_date, cast_to_text=Cast.date_to_str)
     TIME = FieldType(type=time, cast_from_text=Cast.str_to_time, cast_to_text=Cast.time_to_str)
     AMOUNT = FieldType(type=Decimal, cast_from_text=Cast.str_to_amount, cast_to_text=Cast.amount_to_str)
-    ARRAY = FieldType(type=List[str], cast_from_text=Cast.str_to_text, cast_to_text=Cast.text_to_str)
+    ARRAY = FieldType(type=List[unicode], cast_from_text=Cast.str_to_text, cast_to_text=Cast.text_to_str)
     FLAG = FieldType(type=type(None), cast_from_text=Cast.str_to_text, cast_to_text=Cast.text_to_str)
 
 
 class Field(NamedTuple):
-    key: str
-    description: str
+    key: unicode
+    description: unicode
     required: Required = Required.NONE
     type: Type = Type.TEXT
 
-    def get_value_from_text(self, source_text: AnyStr) -> Any:
-        regex = r'^' + self.key + '=(.*?)$'
+    def get_value_from_text(self, source_text):
+        regex = ur'^' + self.key + u'=(.*?)$'
         found = re.findall(regex, source_text, re.MULTILINE)
 
         if len(found) > 1 and self.type != Type.ARRAY:
@@ -159,25 +162,24 @@ class Field(NamedTuple):
             return self.type.value.cast_from_text(found[0])
 
 
-class Schema:
+class Schema(object):
     @classmethod
-    def to_dict(cls) -> dict:
-        return {
-            attr: getattr(cls, attr)
-            for attr in cls.__dict__.keys() if not attr.startswith("__")
-        }
+    def to_dict(cls):
+        return dict((
+            attr, getattr(cls, attr))
+            for attr in cls.__dict__.keys() if not attr.startswith(u"__"))
 
 
-class Section:
+class Section(object):
     class Meta(NamedTuple):
-        regex: Pattern[str] = None
+        regex: Pattern[unicode] = None
 
     @classmethod
-    def extract_section_text(cls, source_text: AnyStr):
+    def extract_section_text(cls, source_text):
         regex = cls.Meta.regex
 
         if not regex:
-            raise ValueError('Regex для секции не определен: нет смысла парсить подсекции')
+            raise ValueError(u'Regex для секции не определен: нет смысла парсить подсекции')
 
         result = regex.findall(source_text)
         if result:
@@ -205,13 +207,13 @@ class Section:
                 value = field.type.value.cast_to_text(attr)
                 required = Required.TO_BANK in field.required
                 if not required and not value:
-                    return ''
+                    return u''
                 else:
                     return f'{name}' if is_flag else f'{name}={value}'
 
             if attr and field.type == Type.ARRAY:
                 lines = [get_line(key, field, item) for item in attr]
-                return '\n'.join(lines) if lines else ''
+                return u'\n'.join(lines) if lines else u''
             else:
                 return get_line(key, field, attr)
 
@@ -232,39 +234,39 @@ class Section:
             text = get_text(key, field, attr)
             result.append(text)
 
-        return '\n'.join(filter(lambda x: x != '', result))
+        return u'\n'.join(ifilter(lambda x: x != u'', result))
 
     def __str__(self):
         return self.to_text(validate=False)
 
 
 class Header(Section):
-    """
+    u"""
     Секция заголовка файла, описывает формат, версию, кодировку, программы отправителя и получателя,
     сведения об условиях отбора передаваемых данных
     """
 
     class Meta(NamedTuple):
-        regex = re.compile(r'^(.*?)Секция', re.S)
+        regex = re.compile(ur'^(.*?)Секция', re.S)
 
     class Schema(Schema):
-        format_name = Field('1CClientBankExchange', 'Внутренний признак файла обмена', Required.BOTH, type=Type.FLAG)
-        format_version = Field('ВерсияФормата', 'Номер версии формата обмена', Required.BOTH)
-        encoding = Field('Кодировка', 'Кодировка файла', Required.BOTH)
-        sender = Field('Отправитель', 'Программа-отправитель', Required.TO_BANK)
-        receiver = Field('Получатель', 'Программа-получатель', Required.FROM_BANK)
-        creation_date = Field('ДатаСоздания', 'Дата формирования файла', type=Type.DATE)
-        creation_time = Field('ВремяСоздания', 'Время формирования файла', type=Type.TIME)
-        filter_date_since = Field('ДатаНачала', 'Дата начала интервала', Required.BOTH, type=Type.DATE)
-        filter_date_till = Field('ДатаКонца', 'Дата конца интервала', Required.BOTH, type=Type.DATE)
-        filter_account_numbers = Field('РасчСчет', 'Расчетный счет организации', Required.BOTH, type=Type.ARRAY)
-        filter_document_types = Field('Документ', 'Вид документа', type=Type.ARRAY)
+        format_name = Field(u'1CClientBankExchange', u'Внутренний признак файла обмена', Required.BOTH, type=Type.FLAG)
+        format_version = Field(u'ВерсияФормата', u'Номер версии формата обмена', Required.BOTH)
+        encoding = Field(u'Кодировка', u'Кодировка файла', Required.BOTH)
+        sender = Field(u'Отправитель', u'Программа-отправитель', Required.TO_BANK)
+        receiver = Field(u'Получатель', u'Программа-получатель', Required.FROM_BANK)
+        creation_date = Field(u'ДатаСоздания', u'Дата формирования файла', type=Type.DATE)
+        creation_time = Field(u'ВремяСоздания', u'Время формирования файла', type=Type.TIME)
+        filter_date_since = Field(u'ДатаНачала', u'Дата начала интервала', Required.BOTH, type=Type.DATE)
+        filter_date_till = Field(u'ДатаКонца', u'Дата конца интервала', Required.BOTH, type=Type.DATE)
+        filter_account_numbers = Field(u'РасчСчет', u'Расчетный счет организации', Required.BOTH, type=Type.ARRAY)
+        filter_document_types = Field(u'Документ', u'Вид документа', type=Type.ARRAY)
 
-    def __init__(self, format_name: str = None, format_version: str = None, encoding: str = None, sender: str = None,
-                 receiver: str = None, creation_date: Type.DATE.value.type = None,
-                 creation_time: Type.TIME.value.type = None, filter_date_since: Type.DATE.value.type = None,
-                 filter_date_till: Type.DATE.value.type = None, filter_account_numbers: Type.ARRAY.value.type = None,
-                 filter_document_types: Type.ARRAY.value.type = None):
+    def __init__(self, format_name = None, format_version = None, encoding = None, sender = None,
+                 receiver = None, creation_date = None,
+                 creation_time = None, filter_date_since = None,
+                 filter_date_till = None, filter_account_numbers = None,
+                 filter_document_types = None):
         super(Header, self).__init__()
         self.format_name = format_name
         self.format_version = format_version
@@ -281,33 +283,33 @@ class Header(Section):
     @classmethod
     def from_text(cls, source_text):
         section_text = cls.extract_section_text(source_text)
-        return super().from_text(section_text)
+        return super(Header, cls).from_text(section_text)
 
 
 class Balance(Section):
-    """
+    u"""
     Секция передачи остатков по расчетному счету
     """
 
     class Meta(NamedTuple):
-        regex = re.compile(r'СекцияРасчСчет(.*?)КонецРасчСчет', re.S)
+        regex = re.compile(ur'СекцияРасчСчет(.*?)КонецРасчСчет', re.S)
 
     class Schema(Schema):
-        tag_begin = Field('СекцияРасчСчет', 'Признак начала секции', type=Type.FLAG)
-        date_since = Field('ДатаНачала', 'Дата начала интервала', Required.FROM_BANK, type=Type.DATE)
-        date_till = Field('ДатаКонца', 'Дата конца интервала', type=Type.DATE)
-        account_number = Field('РасчСчет', 'Расчетный счет организации', Required.FROM_BANK)
-        initial_balance = Field('НачальныйОстаток', 'Начальный остаток', Required.FROM_BANK, type=Type.AMOUNT)
-        total_income = Field('ВсегоПоступило', 'Обороты входящих платежей', type=Type.AMOUNT)
-        total_expense = Field('ВсегоСписано', 'Обороты исходящих платежей', type=Type.AMOUNT)
-        final_balance = Field('КонечныйОстаток', 'Конечный остаток', type=Type.AMOUNT)
-        tag_end = Field('КонецРасчСчет', 'Признак окончания секции', type=Type.FLAG)
+        tag_begin = Field(u'СекцияРасчСчет', u'Признак начала секции', type=Type.FLAG)
+        date_since = Field(u'ДатаНачала', u'Дата начала интервала', Required.FROM_BANK, type=Type.DATE)
+        date_till = Field(u'ДатаКонца', u'Дата конца интервала', type=Type.DATE)
+        account_number = Field(u'РасчСчет', u'Расчетный счет организации', Required.FROM_BANK)
+        initial_balance = Field(u'НачальныйОстаток', u'Начальный остаток', Required.FROM_BANK, type=Type.AMOUNT)
+        total_income = Field(u'ВсегоПоступило', u'Обороты входящих платежей', type=Type.AMOUNT)
+        total_expense = Field(u'ВсегоСписано', u'Обороты исходящих платежей', type=Type.AMOUNT)
+        final_balance = Field(u'КонечныйОстаток', u'Конечный остаток', type=Type.AMOUNT)
+        tag_end = Field(u'КонецРасчСчет', u'Признак окончания секции', type=Type.FLAG)
 
-    def __init__(self, tag_begin: str = None, date_since: Type.DATE.value.type = None,
-                 date_till: Type.DATE.value.type = None, account_number: str = None,
-                 initial_balance: Type.AMOUNT.value.type = None, total_income: Type.AMOUNT.value.type = None,
-                 total_expense: Type.AMOUNT.value.type = None, final_balance: Type.AMOUNT.value.type = None,
-                 tag_end: str = None):
+    def __init__(self, tag_begin = None, date_since = None,
+                 date_till = None, account_number = None,
+                 initial_balance = None, total_income = None,
+                 total_expense = None, final_balance = None,
+                 tag_end = None):
         super(Balance, self).__init__()
         self.tag_begin = tag_begin
         self.date_since = date_since
@@ -326,21 +328,21 @@ class Balance(Section):
     @classmethod
     def from_text(cls, source_text):
         section_text = cls.extract_section_text(source_text)
-        return super().from_text(section_text)
+        return super(Balance, cls).from_text(section_text)
 
 
 class Receipt(Section):
-    """
+    u"""
     Квитанция по платежному документу
     """
 
     class Schema(Schema):
-        date = Field('КвитанцияДата', 'Дата формирования квитанции', type=Type.DATE)
-        time = Field('КвитанцияВремя', 'Время формирования квитанции', type=Type.TIME)
-        content = Field('КвитанцияСодержание', 'Содержание квитанции')
+        date = Field(u'КвитанцияДата', u'Дата формирования квитанции', type=Type.DATE)
+        time = Field(u'КвитанцияВремя', u'Время формирования квитанции', type=Type.TIME)
+        content = Field(u'КвитанцияСодержание', u'Содержание квитанции')
 
     # noinspection PyShadowingNames
-    def __init__(self, date: Type.DATE.value.type = None, time: Type.TIME.value.type = None, content: str = None):
+    def __init__(self, date = None, time = None, content = None):
         super(Receipt, self).__init__()
         self.date = date
         self.time = time
@@ -348,7 +350,7 @@ class Receipt(Section):
 
 
 class Payer(Section):
-    """
+    u"""
     Реквизиты плательщика
     """
 
@@ -356,24 +358,24 @@ class Payer(Section):
         regex = None
 
     class Schema(Schema):
-        account = Field('ПлательщикСчет', 'Расчетный счет плательщика', Required.BOTH)
-        date_charged = Field('ДатаСписано', 'Дата списания средств с р/с', Required.FROM_BANK, type=Type.DATE)
-        name = Field('Плательщик', 'Плательщик', Required.TO_BANK)
-        inn = Field('ПлательщикИНН', 'ИНН плательщика', Required.BOTH)
-        l1_name = Field('Плательщик1', 'Наименование плательщика, стр. 1', Required.TO_BANK)
-        l2_account_number = Field('Плательщик2', 'Наименование плательщика, стр. 2')
-        l3_bank = Field('Плательщик3', 'Наименование плательщика, стр. 3')
-        l4_city = Field('Плательщик4', 'Наименование плательщика, стр. 4')
-        account_number = Field('ПлательщикРасчСчет', 'Расчетный счет плательщика', Required.TO_BANK)
-        bank_1_name = Field('ПлательщикБанк1', 'Банк плательщика', Required.TO_BANK)
-        bank_2_city = Field('ПлательщикБанк2', 'Город банка плательщика', Required.TO_BANK)
-        bank_bic = Field('ПлательщикБИК', 'БИК банка плательщика', Required.TO_BANK)
-        bank_corr_account = Field('ПлательщикКорсчет', 'Корсчет банка плательщика', Required.TO_BANK)
+        account = Field(u'ПлательщикСчет', u'Расчетный счет плательщика', Required.BOTH)
+        date_charged = Field(u'ДатаСписано', u'Дата списания средств с р/с', Required.FROM_BANK, type=Type.DATE)
+        name = Field(u'Плательщик', u'Плательщик', Required.TO_BANK)
+        inn = Field(u'ПлательщикИНН', u'ИНН плательщика', Required.BOTH)
+        l1_name = Field(u'Плательщик1', u'Наименование плательщика, стр. 1', Required.TO_BANK)
+        l2_account_number = Field(u'Плательщик2', u'Наименование плательщика, стр. 2')
+        l3_bank = Field(u'Плательщик3', u'Наименование плательщика, стр. 3')
+        l4_city = Field(u'Плательщик4', u'Наименование плательщика, стр. 4')
+        account_number = Field(u'ПлательщикРасчСчет', u'Расчетный счет плательщика', Required.TO_BANK)
+        bank_1_name = Field(u'ПлательщикБанк1', u'Банк плательщика', Required.TO_BANK)
+        bank_2_city = Field(u'ПлательщикБанк2', u'Город банка плательщика', Required.TO_BANK)
+        bank_bic = Field(u'ПлательщикБИК', u'БИК банка плательщика', Required.TO_BANK)
+        bank_corr_account = Field(u'ПлательщикКорсчет', u'Корсчет банка плательщика', Required.TO_BANK)
 
-    def __init__(self, account: str = None, date_charged: Type.DATE.value.type = None, name: str = None,
-                 inn: str = None, l1_name: str = None, l2_account_number: str = None, l3_bank: str = None,
-                 l4_city: str = None, account_number: str = None, bank_1_name: str = None, bank_2_city: str = None,
-                 bank_bic: str = None, bank_corr_account: str = None):
+    def __init__(self, account = None, date_charged = None, name = None,
+                 inn = None, l1_name = None, l2_account_number = None, l3_bank = None,
+                 l4_city = None, account_number = None, bank_1_name = None, bank_2_city = None,
+                 bank_bic = None, bank_corr_account = None):
         super(Payer, self).__init__()
         self.account = account
         self.date_charged = date_charged
@@ -391,7 +393,7 @@ class Payer(Section):
 
 
 class Receiver(Section):
-    """
+    u"""
     Реквизиты получателя
     """
 
@@ -399,24 +401,24 @@ class Receiver(Section):
         regex = None
 
     class Schema(Schema):
-        account = Field('ПолучательСчет', 'Расчетный счет получателя', Required.BOTH)
-        date_received = Field('ДатаПоступило', 'Дата поступления средств на р/с', Required.FROM_BANK)
-        name = Field('Получатель', 'Получатель', Required.TO_BANK)
-        inn = Field('ПолучательИНН', 'ИНН получателя', Required.BOTH)
-        l1_name = Field('Получатель1', 'Наименование получателя', Required.TO_BANK)
-        l2_account_number = Field('Получатель2', 'Наименование получателя, стр. 2')
-        l3_bank = Field('Получатель3', 'Наименование получателя, стр. 3')
-        l4_city = Field('Получатель4', 'Наименование получателя, стр. 4')
-        account_number = Field('ПолучательРасчСчет', 'Расчетный счет получателя', Required.TO_BANK)
-        bank_1_name = Field('ПолучательБанк1', 'Банк получателя', Required.TO_BANK)
-        bank_2_city = Field('ПолучательБанк2', 'Город банка получателя', Required.TO_BANK)
-        bank_bic = Field('ПолучательБИК', 'БИК банка получателя', Required.TO_BANK)
-        bank_corr_account = Field('ПолучательКорсчет', 'Корсчет банка получателя', Required.TO_BANK)
+        account = Field(u'ПолучательСчет', u'Расчетный счет получателя', Required.BOTH)
+        date_received = Field(u'ДатаПоступило', u'Дата поступления средств на р/с', Required.FROM_BANK)
+        name = Field(u'Получатель', u'Получатель', Required.TO_BANK)
+        inn = Field(u'ПолучательИНН', u'ИНН получателя', Required.BOTH)
+        l1_name = Field(u'Получатель1', u'Наименование получателя', Required.TO_BANK)
+        l2_account_number = Field(u'Получатель2', u'Наименование получателя, стр. 2')
+        l3_bank = Field(u'Получатель3', u'Наименование получателя, стр. 3')
+        l4_city = Field(u'Получатель4', u'Наименование получателя, стр. 4')
+        account_number = Field(u'ПолучательРасчСчет', u'Расчетный счет получателя', Required.TO_BANK)
+        bank_1_name = Field(u'ПолучательБанк1', u'Банк получателя', Required.TO_BANK)
+        bank_2_city = Field(u'ПолучательБанк2', u'Город банка получателя', Required.TO_BANK)
+        bank_bic = Field(u'ПолучательБИК', u'БИК банка получателя', Required.TO_BANK)
+        bank_corr_account = Field(u'ПолучательКорсчет', u'Корсчет банка получателя', Required.TO_BANK)
 
-    def __init__(self, account: str = None, date_received: str = None, name: str = None, inn: str = None,
-                 l1_name: str = None, l2_account_number: str = None, l3_bank: str = None, l4_city: str = None,
-                 account_number: str = None, bank_1_name: str = None, bank_2_city: str = None, bank_bic: str = None,
-                 bank_corr_account: str = None):
+    def __init__(self, account = None, date_received = None, name = None, inn = None,
+                 l1_name = None, l2_account_number = None, l3_bank = None, l4_city = None,
+                 account_number = None, bank_1_name = None, bank_2_city = None, bank_bic = None,
+                 bank_corr_account = None):
         super(Receiver, self).__init__()
         self.account = account
         self.date_received = date_received
@@ -434,7 +436,7 @@ class Receiver(Section):
 
 
 class Payment(Section):
-    """
+    u"""
     Реквизиты платежа
     """
 
@@ -442,20 +444,20 @@ class Payment(Section):
         regex = None
 
     class Schema(Schema):
-        payment_type = Field('ВидПлатежа', 'Вид платежа')
-        operation_type = Field('ВидОплаты', 'Вид оплаты (вид операции)', Required.TO_BANK)
-        code = Field('Код', 'Уникальный идентификатор платежа')
-        purpose = Field('НазначениеПлатежа', 'Назначение платежа')
-        purpose_l1 = Field('НазначениеПлатежа1', 'Назначение платежа, стр. 1')
-        purpose_l2 = Field('НазначениеПлатежа2', 'Назначение платежа, стр. 2')
-        purpose_l3 = Field('НазначениеПлатежа3', 'Назначение платежа, стр. 3')
-        purpose_l4 = Field('НазначениеПлатежа4', 'Назначение платежа, стр. 4')
-        purpose_l5 = Field('НазначениеПлатежа5', 'Назначение платежа, стр. 5')
-        purpose_l6 = Field('НазначениеПлатежа6', 'Назначение платежа, стр. 6')
+        payment_type = Field(u'ВидПлатежа', u'Вид платежа')
+        operation_type = Field(u'ВидОплаты', u'Вид оплаты (вид операции)', Required.TO_BANK)
+        code = Field(u'Код', u'Уникальный идентификатор платежа')
+        purpose = Field(u'НазначениеПлатежа', u'Назначение платежа')
+        purpose_l1 = Field(u'НазначениеПлатежа1', u'Назначение платежа, стр. 1')
+        purpose_l2 = Field(u'НазначениеПлатежа2', u'Назначение платежа, стр. 2')
+        purpose_l3 = Field(u'НазначениеПлатежа3', u'Назначение платежа, стр. 3')
+        purpose_l4 = Field(u'НазначениеПлатежа4', u'Назначение платежа, стр. 4')
+        purpose_l5 = Field(u'НазначениеПлатежа5', u'Назначение платежа, стр. 5')
+        purpose_l6 = Field(u'НазначениеПлатежа6', u'Назначение платежа, стр. 6')
 
-    def __init__(self, payment_type: str = None, operation_type: str = None, code: str = None, purpose: str = None,
-                 purpose_l1: str = None, purpose_l2: str = None, purpose_l3: str = None, purpose_l4: str = None,
-                 purpose_l5: str = None, purpose_l6: str = None):
+    def __init__(self, payment_type = None, operation_type = None, code = None, purpose = None,
+                 purpose_l1 = None, purpose_l2 = None, purpose_l3 = None, purpose_l4 = None,
+                 purpose_l5 = None, purpose_l6 = None):
         super(Payment, self).__init__()
         self.payment_type = payment_type
         self.operation_type = operation_type
@@ -471,7 +473,7 @@ class Payment(Section):
 
 # noinspection PyShadowingBuiltins
 class Tax(Section):
-    """
+    u"""
     Дополнительные реквизиты для платежей в бюджетную систему Российской Федерации
     """
 
@@ -479,23 +481,23 @@ class Tax(Section):
         regex = None
 
     class Schema(Schema):
-        originator_status = Field('СтатусСоставителя', 'Статус составителя расчетного документа', Required.BOTH)
-        payer_kpp = Field('ПлательщикКПП', 'КПП плательщика', Required.BOTH)
-        receiver_kpp = Field('ПолучательКПП', 'КПП получателя', Required.BOTH)
-        kbk = Field('ПоказательКБК', 'Показатель кода бюджетной классификации', Required.BOTH)
-        okato = Field('ОКАТО',
-                      'Код ОКТМО территории, на которой мобилизуются денежные средства от уплаты налога, сбора и иного '
-                      'платежа', Required.BOTH)
-        basis = Field('ПоказательОснования', 'Показатель основания налогового платежа', Required.BOTH)
-        period = Field('ПоказательПериода', 'Показатель налогового периода / Код таможенного органа', Required.BOTH)
-        number = Field('ПоказательНомера', 'Показатель номера документа', Required.BOTH)
-        date = Field('ПоказательДаты', 'Показатель даты документа', Required.BOTH)
-        type = Field('ПоказательТипа', 'Показатель типа платежа')
+        originator_status = Field(u'СтатусСоставителя', u'Статус составителя расчетного документа', Required.BOTH)
+        payer_kpp = Field(u'ПлательщикКПП', u'КПП плательщика', Required.BOTH)
+        receiver_kpp = Field(u'ПолучательКПП', u'КПП получателя', Required.BOTH)
+        kbk = Field(u'ПоказательКБК', u'Показатель кода бюджетной классификации', Required.BOTH)
+        okato = Field(u'ОКАТО',
+                      u'Код ОКТМО территории, на которой мобилизуются денежные средства от уплаты налога, сбора и иного '
+                      u'платежа', Required.BOTH)
+        basis = Field(u'ПоказательОснования', u'Показатель основания налогового платежа', Required.BOTH)
+        period = Field(u'ПоказательПериода', u'Показатель налогового периода / Код таможенного органа', Required.BOTH)
+        number = Field(u'ПоказательНомера', u'Показатель номера документа', Required.BOTH)
+        date = Field(u'ПоказательДаты', u'Показатель даты документа', Required.BOTH)
+        type = Field(u'ПоказательТипа', u'Показатель типа платежа')
 
     # noinspection PyShadowingNames
-    def __init__(self, originator_status: str = None, payer_kpp: str = None, receiver_kpp: str = None, kbk: str = None,
-                 okato: str = None, basis: str = None, period: str = None, number: str = None, date: str = None,
-                 type: str = None):
+    def __init__(self, originator_status = None, payer_kpp = None, receiver_kpp = None, kbk = None,
+                 okato = None, basis = None, period = None, number = None, date = None,
+                 type = None):
         super(Tax, self).__init__()
         self.originator_status = originator_status
         self.payer_kpp = payer_kpp
@@ -510,7 +512,7 @@ class Tax(Section):
 
 
 class Special(Section):
-    """
+    u"""
     Дополнительные реквизиты для отдельных видов документов
     """
 
@@ -518,22 +520,22 @@ class Special(Section):
         regex = None
 
     class Schema(Schema):
-        priority = Field('Очередность', 'Очередность платежа')
-        term_of_acceptance = Field('СрокАкцепта', 'Срок акцепта, количество дней')
-        letter_of_credit_type = Field('ВидАккредитива', 'Вид аккредитива')
-        maturity = Field('СрокПлатежа', 'Срок платежа (аккредитива)')
-        payment_condition_1 = Field('УсловиеОплаты1', 'Условие оплаты, стр. 1')
-        payment_condition_2 = Field('УсловиеОплаты2', 'Условие оплаты, стр. 2')
-        payment_condition_3 = Field('УсловиеОплаты3', 'Условие оплаты, стр. 3')
-        by_submission = Field('ПлатежПоПредст', 'Платеж по представлению')
-        extra_conditions = Field('ДополнУсловия', 'Дополнительные условия')
-        supplier_account_number = Field('НомерСчетаПоставщика', '№ счета поставщика')
-        docs_sent_date = Field('ДатаОтсылкиДок', 'Дата отсылки документов')
+        priority = Field(u'Очередность', u'Очередность платежа')
+        term_of_acceptance = Field(u'СрокАкцепта', u'Срок акцепта, количество дней')
+        letter_of_credit_type = Field(u'ВидАккредитива', u'Вид аккредитива')
+        maturity = Field(u'СрокПлатежа', u'Срок платежа (аккредитива)')
+        payment_condition_1 = Field(u'УсловиеОплаты1', u'Условие оплаты, стр. 1')
+        payment_condition_2 = Field(u'УсловиеОплаты2', u'Условие оплаты, стр. 2')
+        payment_condition_3 = Field(u'УсловиеОплаты3', u'Условие оплаты, стр. 3')
+        by_submission = Field(u'ПлатежПоПредст', u'Платеж по представлению')
+        extra_conditions = Field(u'ДополнУсловия', u'Дополнительные условия')
+        supplier_account_number = Field(u'НомерСчетаПоставщика', u'№ счета поставщика')
+        docs_sent_date = Field(u'ДатаОтсылкиДок', u'Дата отсылки документов')
 
-    def __init__(self, priority: str = None, term_of_acceptance: str = None, letter_of_credit_type: str = None,
-                 maturity: str = None, payment_condition_1: str = None, payment_condition_2: str = None,
-                 payment_condition_3: str = None, by_submission: str = None, extra_conditions: str = None,
-                 supplier_account_number: str = None, docs_sent_date: str = None):
+    def __init__(self, priority = None, term_of_acceptance = None, letter_of_credit_type = None,
+                 maturity = None, payment_condition_1 = None, payment_condition_2 = None,
+                 payment_condition_3 = None, by_submission = None, extra_conditions = None,
+                 supplier_account_number = None, docs_sent_date = None):
         super(Special, self).__init__()
         self.priority = priority
         self.term_of_acceptance = term_of_acceptance
@@ -549,20 +551,20 @@ class Special(Section):
 
 
 class Document(Section):
-    """
+    u"""
     Секция платежного документа, содержит шапку платежного документа и подсекции: квитанция, реквизиты
     плательщика и получателя, реквизиты платежа и дополнительные реквизиты для платежей в бюджет и для отдельных
     видов документов
     """
 
     class Meta(NamedTuple):
-        regex = re.compile(r'(СекцияДокумент.*?)КонецДокумента', re.S)
+        regex = re.compile(ur'(СекцияДокумент.*?)КонецДокумента', re.S)
 
     class Schema(Schema):
-        document_type = Field('СекцияДокумент', 'Признак начала секции')  # содержит вид документа
-        number = Field('Номер', 'Номер документа', Required.BOTH)
-        date = Field('Дата', 'Дата документа', Required.BOTH, type=Type.DATE)
-        amount = Field('Сумма', 'Сумма платежа', Required.BOTH, type=Type.AMOUNT)
+        document_type = Field(u'СекцияДокумент', u'Признак начала секции')  # содержит вид документа
+        number = Field(u'Номер', u'Номер документа', Required.BOTH)
+        date = Field(u'Дата', u'Дата документа', Required.BOTH, type=Type.DATE)
+        amount = Field(u'Сумма', u'Сумма платежа', Required.BOTH, type=Type.AMOUNT)
 
     class Subsections(Schema):
         receipt = Receipt
@@ -573,9 +575,9 @@ class Document(Section):
         special = Special
 
     # noinspection PyShadowingNames
-    def __init__(self, document_type: str = None, number: str = None, date: Type.DATE.value.type = None,
-                 amount: str = None, receipt: Receipt = None, payer: Payer = None, receiver: Receiver = None,
-                 payment: Payment = None, tax: Tax = None, special: Special = None):
+    def __init__(self, document_type = None, number = None, date = None,
+                 amount = None, receipt = None, payer = None, receiver = None,
+                 payment = None, tax = None, special = None):
         super(Document, self).__init__()
         self.document_type = document_type
         self.number = number
@@ -589,7 +591,7 @@ class Document(Section):
         self.special = special
 
     @classmethod
-    def from_text(cls, source_text: AnyStr):
+    def from_text(cls, source_text):
         extracted = cls.extract_section_text(source_text)
 
         if not isinstance(extracted, list):
@@ -597,7 +599,7 @@ class Document(Section):
 
         results = []
         for section_text in extracted:
-            obj: cls = super().from_text(section_text)
+            obj: cls = super(Document, cls).from_text(section_text)
             obj.receipt = Receipt.from_text(section_text)
             obj.payer = Payer.from_text(section_text)
             obj.receiver = Receiver.from_text(section_text)
@@ -610,33 +612,33 @@ class Document(Section):
 
     def to_text(self, validate=True):
         content = super(Document, self).to_text(validate=validate)
-        sections = list(filter(None, [self.receipt, self.payer, self.receiver, self.payment, self.tax, self.special]))
-        sections = list(map(lambda x: str(x), sections))
-        sections.append('КонецДокумента')
-        return content + '\n' + '\n'.join(sections)
+        sections = list(ifilter(None, [self.receipt, self.payer, self.receiver, self.payment, self.tax, self.special]))
+        sections = list(imap(lambda x: unicode(x), sections))
+        sections.append(u'КонецДокумента')
+        return content + u'\n' + u'\n'.join(sections)
 
 
-class Statement:
-    def __init__(self, header: Header, balance: Balance = None, documents: List[Document] = None):
+class Statement(object):
+    def __init__(self, header, balance = None, documents = None):
         super(Statement, self).__init__()
         self.header: Header = header
         self.balance: Balance = balance
         self.documents: List[Document] = documents
 
     @classmethod
-    def from_file(cls, filename: str):
-        """
+    def from_file(cls, filename):
+        u"""
         Конструктор полного документа выписки из файла
 
         :param filename: Путь к файлу
         :return: Заполненный объект полного документа выписки
         """
-        text = open(filename, encoding='cp1251').read()
+        text = open(filename, encoding=u'cp1251').read()
         return cls.from_text(text)
 
     @classmethod
     def from_text(cls, source_text):
-        """
+        u"""
         Конструктор полного документа выписки из текста файла
 
         :param source_text: Полный текст файла выписки в формате 1CClientBankExchange
@@ -651,17 +653,17 @@ class Statement:
         )
 
     @classmethod
-    def from_documents(cls, sender: str, documents: List[Document]):
+    def from_documents(cls, sender, documents):
         payments_from_the_only_bank = len(set([d.payer.bank_bic for d in documents])) == 1
         if not payments_from_the_only_bank:
-            raise ValueError('Файл для загрузки в банк должен содержать платежи только из одного банка!')
+            raise ValueError(u'Файл для загрузки в банк должен содержать платежи только из одного банка!')
 
         dates = [doc.date for doc in documents]
 
         return cls(
             header=Header(
-                format_version='1.02',
-                encoding='Windows',
+                format_version=u'1.02',
+                encoding=u'Windows',
                 sender=sender,
                 creation_date=date.today(),
                 creation_time=datetime.now(),
@@ -682,9 +684,9 @@ class Statement:
         if self.documents:
             results.extend([doc.to_text(validate=validate) for doc in self.documents])
 
-        results.append('КонецФайла')
+        results.append(u'КонецФайла')
 
-        return '\n\n'.join(filter(lambda x: x, results))
+        return u'\n\n'.join(ifilter(lambda x: x, results))
 
     def __str__(self):
         return self.to_text(validate=False)
