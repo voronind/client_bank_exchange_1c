@@ -1,3 +1,4 @@
+# coding: utf8
 from __future__ import absolute_import
 import re
 from decimal import Decimal
@@ -171,8 +172,8 @@ class Schema(object):
 
 
 class Section(object):
-    class Meta(NamedTuple):
-        regex: Pattern[unicode] = None
+    class Meta(object):
+        regex = None
 
     @classmethod
     def extract_section_text(cls, source_text):
@@ -246,7 +247,7 @@ class Header(Section):
     сведения об условиях отбора передаваемых данных
     """
 
-    class Meta(NamedTuple):
+    class Meta(object):
         regex = re.compile(ur'^(.*?)Секция', re.S)
 
     class Schema(Schema):
@@ -291,7 +292,7 @@ class Balance(Section):
     Секция передачи остатков по расчетному счету
     """
 
-    class Meta(NamedTuple):
+    class Meta(object):
         regex = re.compile(ur'СекцияРасчСчет(.*?)КонецРасчСчет', re.S)
 
     class Schema(Schema):
@@ -354,7 +355,7 @@ class Payer(Section):
     Реквизиты плательщика
     """
 
-    class Meta(NamedTuple):
+    class Meta(object):
         regex = None
 
     class Schema(Schema):
@@ -397,7 +398,7 @@ class Receiver(Section):
     Реквизиты получателя
     """
 
-    class Meta(NamedTuple):
+    class Meta(object):
         regex = None
 
     class Schema(Schema):
@@ -440,7 +441,7 @@ class Payment(Section):
     Реквизиты платежа
     """
 
-    class Meta(NamedTuple):
+    class Meta(object):
         regex = None
 
     class Schema(Schema):
@@ -477,7 +478,7 @@ class Tax(Section):
     Дополнительные реквизиты для платежей в бюджетную систему Российской Федерации
     """
 
-    class Meta(NamedTuple):
+    class Meta(object):
         regex = None
 
     class Schema(Schema):
@@ -516,7 +517,7 @@ class Special(Section):
     Дополнительные реквизиты для отдельных видов документов
     """
 
-    class Meta(NamedTuple):
+    class Meta(object):
         regex = None
 
     class Schema(Schema):
@@ -557,7 +558,7 @@ class Document(Section):
     видов документов
     """
 
-    class Meta(NamedTuple):
+    class Meta(object):
         regex = re.compile(ur'(СекцияДокумент.*?)КонецДокумента', re.S)
 
     class Schema(Schema):
