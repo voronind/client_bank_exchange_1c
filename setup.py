@@ -12,7 +12,7 @@ from setuptools import setup, find_packages
 #     history = history_file.read()
 
 requirements = [
-    # TODO: put package requirements here
+    'aenum',
 ]
 
 setup_requirements = [

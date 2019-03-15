@@ -4,17 +4,20 @@ import re
 from collections import namedtuple
 from decimal import Decimal
 from datetime import date, time, datetime
-from enum import Flag, auto, Enum
 from typing import List, Callable, Pattern, AnyStr, Any, Optional
 from itertools import ifilter
 from itertools import imap
 from io import open
+
+from aenum import Flag, auto, Enum
 
 DATE_FORMAT = u'%d.%m.%Y'
 TIME_FORMAT = u'%H:%M:%S'
 
 
 class Required(Flag):
+    _order_ = 'NONE TO_BANK FROM_BANK BOTH'
+
     NONE = 0
     TO_BANK = auto()
     FROM_BANK = auto()
